@@ -1,0 +1,26 @@
+[[bin]]
+name = "cli-server"
+required-features = ["std", "tokio/macros", "tokio/rt-multi-thread"]
+
+[[bin]]
+name = "web-client"
+required-features = ["std", "wasm-bindgen"]
+
+[dependencies]
+home = { default-features = false, version = "0.5" }
+tokio = { default-features = false, features = ["fs", "net", "time"], version = "1.0" }
+wasm-bindgen = { default-features = false, features = ["std"], optional = true, version = "0.2" }
+wry = { default-features = false, features = ["protocol", "tao"], optional = true, version = "0.34" }
+wtx = { default-features = false, features = ["tokio", "web-socket-handshake"], version = "0.11" }
+
+[dev-dependencies]
+tokio = { default-features = false, features = ["fs", "net", "time"], version = "1.0" }
+
+[features]
+std = []
+
+[package]
+edition = "2021"
+name = "irec"
+publish = false
+version = "0.1.0"
