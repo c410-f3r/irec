@@ -10,4 +10,4 @@ $rt clippy
 
 $rt test-generic .
 
-cargo test --bin cli-server --features="std,tokio/macros,tokio/rt-multi-thread"
+cargo test --bin server --features="rustls-pemfile,tokio/macros,tokio/rt-multi-thread"

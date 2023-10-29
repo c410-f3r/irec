@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1,width=device-width">
+    <script>
+        const commonButtonClass = "button is-fullwidth mt-5"
+        const sendDataInterval = 1000;
+        const sendFileInterval = 24 * 60 * 1000;
+
+        let interval = 0;
+        let mediaStream = null;
+        let recorder = null;
+        let ws = null;
+        let wsIsConnected = false;
+
+        function stopAll() {
+            if (mediaStream !== null && recorder !== null && ws !== null) {
+                recorder.stop();
+                mediaStream.getTracks().forEach(track => track.stop());
+                ws.close();
+                clearInterval(interval);
+            }
+        }
+
+        async function store(hasVideo, interval, url, onError, onOpen) {
+            ws = new WebSocket(url);
+            ws.onclose = event => {
+                wsIsConnected = false;
+            }
+            ws.onerror = event => {
+                onError();
+                wsIsConnected = false;
+            }
+            ws.onopen = event => {
+                onOpen();
+                wsIsConnected = true;
+            }
+
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: true,
+                    noiseSuppression: true,
+                    sampleRate: 44100
+                },
+                video: hasVideo
+            });
+            recorder = new MediaRecorder(new MediaStream([...mediaStream.getTracks()]))
+            recorder.start(sendDataInterval);
+            recorder.ondataavailable = event => {
+                if (event.data.size > 0 && wsIsConnected) {
+                    ws.send(new Blob([event.data], { type: 'audio/webm' }));
+                }
+            }
+
+            interval = setInterval(
+                () => {
+                    recorder.stop();
+                    ws.close();
+                    ws = new WebSocket(url);
+                    ws.onclose = event => {
+                        wsIsConnected = false;
+                    }
+                    ws.onopen = event => {
+                        wsIsConnected = true;
+                    }
+                    recorder.start(sendDataInterval)
+                },
+                interval
+            );
+        }
+
+        window.onload = () => {
+            const keyElem = document.getElementById("key");
+            const startElem = document.getElementById("start");
+            const stopElem = document.getElementById("stop");
+            const typeElem = document.getElementById("type");
+            const urlElem = document.getElementById("url");
+
+            startElem.onclick = async () => {
+                const value = typeElem.value.toLowerCase();
+                const wsUrl = `${urlElem.value}/store?ft=${value},key=${keyElem.value}`;
+                let hasVideo;
+                if (value === "audio") {
+                    hasVideo = false;
+                } else if (value === "video") {
+                    hasVideo = true;
+                } else {
+                    return;
+                }
+                stopAll();
+                startElem.className = `${commonButtonClass} is-loading`;
+                try {
+                    await store(
+                        hasVideo,
+                        sendFileInterval,
+                        wsUrl,
+                        () => startElem.className = `${commonButtonClass} is-danger`,
+                        () => {
+                            startElem.disabled = true;
+                            startElem.className = `${commonButtonClass} is-success`
+                        },
+                    );
+                }
+                catch {
+                    startElem.className = `${commonButtonClass} is-danger`;
+                }
+            }
+
+            stopElem.onclick = () => {
+                if (startElem.disabled === true) {
+                    startElem.className = commonButtonClass;
+                    startElem.disabled = false;
+                    stopAll();
+                }
+            }
+
+        };
+    </script>
+    <title>Irec</title>
+</head>
+
+<body>
+    <section class="section">
+        <div class="container ">
+            <div class="columns is-centered">
+                <div class="column is-one-third">
+                    <div class="box">
+                        <h1 class="has-text-centered title">
+                            <a href="https://github.com/c410-f3r/irec">Irec</a>
+                        </h1>
+                        <div class="field">
+                            <label class="label">Url</label>
+                            <div class="control">
+                                <input class="input" id="url" type="text" placeholder="wss://localhost:3000">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label class="label">Key</label>
+                            <div class="control">
+                                <input class="input" id="key" type="text"
+                                    placeholder="dAhkapah2HVGKjqrvFgrjKR2797ujYz9">
+                            </div>
+                        </div>
+                        <div class="field">
+                            <label class="label">Type</label>
+                            <div class="control select is-fullwidth">
+                                <select id="type">
+                                    <option selected>Audio</option>
+                                    <option>Video</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="columns">
+                            <div class="column">
+                                <button class="button is-fullwidth mt-5" id="stop">Stop</button>
+                            </div>
+                            <div class="column">
+                                <button class="button is-fullwidth mt-5" id="start">Start</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+</body>
+
+</html>

@@ -1,23 +1,16 @@
 [[bin]]
-name = "cli-server"
-required-features = ["std", "tokio/macros", "tokio/rt-multi-thread"]
-
-[[bin]]
-name = "web-client"
-required-features = ["std", "wasm-bindgen"]
+name = "server"
+required-features = ["rustls-pemfile", "tokio/macros", "tokio/rt-multi-thread"]
 
 [dependencies]
 home = { default-features = false, version = "0.5" }
-tokio = { default-features = false, features = ["fs", "net", "time"], version = "1.0" }
-wasm-bindgen = { default-features = false, features = ["std"], optional = true, version = "0.2" }
-wry = { default-features = false, features = ["protocol", "tao"], optional = true, version = "0.34" }
-wtx = { default-features = false, features = ["tokio", "web-socket-handshake"], version = "0.11" }
+rustls-pemfile = { default-features = false, optional = true, version = "1.0" }
+tokio = { default-features = false, features = ["fs", "net", "time", "macros", "rt-multi-thread"], version = "1.0" }
+tokio-rustls = { default-features = false, features = ["tls12"], version = "0.24" }
+wtx = { default-features = false, features = ["tokio-rustls", "web-socket-handshake"], version = "0.11" }
 
 [dev-dependencies]
-tokio = { default-features = false, features = ["fs", "net", "time"], version = "1.0" }
-
-[features]
-std = []
+webpki-roots = { default-features = false, version = "0.25" }
 
 [package]
 edition = "2021"

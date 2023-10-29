@@ -1,0 +1,21 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rs/toolchain@v1
+        with:
+          components: clippy, rustfmt
+          override: true
+          profile: minimal
+          toolchain: nightly-2023-10-15
+      - uses: Swatinem/rust-cache@v2
+
+      - run: .scripts/tests.sh
