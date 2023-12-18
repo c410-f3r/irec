@@ -4,7 +4,7 @@ required-features = ["rustls-pemfile", "tokio/macros", "tokio/rt-multi-thread"]
 
 [dependencies]
 home = { default-features = false, version = "0.5" }
-rustls-pemfile = { default-features = false, optional = true, version = "1.0" }
+rustls-pemfile = { default-features = false, optional = true, version = "2.0" }
 tokio = { default-features = false, features = ["fs", "net", "time", "macros", "rt-multi-thread"], version = "1.35" }
 tokio-rustls = { default-features = false, features = ["tls12"], version = "0.24" }
 wtx = { default-features = false, features = ["tokio-rustls", "web-socket-handshake"], version = "0.11" }
