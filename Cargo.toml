@@ -10,7 +10,7 @@ tokio-rustls = { default-features = false, features = ["tls12"], version = "0.24
 wtx = { default-features = false, features = ["tokio-rustls", "web-socket-handshake"], version = "0.11" }
 
 [dev-dependencies]
-webpki-roots = { default-features = false, version = "0.25" }
+webpki-roots = { default-features = false, version = "0.26" }
 
 [package]
 edition = "2021"
