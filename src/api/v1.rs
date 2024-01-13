@@ -13,8 +13,7 @@ use tokio::{
 use tokio_rustls::server::TlsStream;
 use wtx::{
   rng::StdRng,
-  web_socket::{FrameBufferVec, OpCode, WebSocketServer},
-  PartitionedBuffer,
+  web_socket::{FrameBufferVec, OpCode, WebSocketBuffer, WebSocketServer},
 };
 
 /// Stores an arbitrary sequence of bytes into a ".webm" file located at the home directory.
@@ -22,7 +21,7 @@ use wtx::{
 pub async fn store(
   fb: &mut FrameBufferVec,
   ft: FileTy,
-  ws: &mut WebSocketServer<(), PartitionedBuffer, StdRng, &mut TlsStream<TcpStream>>,
+  ws: &mut WebSocketServer<(), StdRng, &mut TlsStream<TcpStream>, WebSocketBuffer>,
 ) -> crate::Result<()> {
   let mut irec_dir = irec_dir(ft)?;
   if !irec_dir.exists() {

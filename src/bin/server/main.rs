@@ -1,19 +1,18 @@
+//! Server
+
+#![allow(clippy::panic, clippy::std_instead_of_alloc)]
+
 use irec::{api::v1::store, FileTy};
-use rustls_pemfile::{certs, pkcs8_private_keys};
-use std::{env, fs, io, str, sync::Arc};
+use std::{env, fs, str};
 use tokio::{io::AsyncWriteExt, net::TcpListener};
-use tokio_rustls::{
-  rustls::{Certificate, PrivateKey, ServerConfig},
-  TlsAcceptor,
-};
 use wtx::{
   http::Request,
+  misc::{TokioRustlsAcceptor, Uri},
   rng::StdRng,
   web_socket::{
     handshake::{WebSocketAccept, WebSocketAcceptRaw},
-    FrameBufferVec,
+    FrameBufferVec, WebSocketBuffer,
   },
-  PartitionedBuffer, UriParts,
 };
 
 #[tokio::main]
@@ -39,9 +38,9 @@ fn manage_accept(
   req: &dyn Request,
   key_cb: &mut impl FnMut(&str) -> bool,
 ) -> bool {
-  let uri_parts_from_req = UriParts::from(str::from_utf8(req.path()).unwrap_or_default());
+  let uri_parts_from_req = Uri::new(str::from_utf8(req.path()).unwrap_or_default());
   let question_fn = || {
-    let mut iter = uri_parts_from_req.href.split('?');
+    let mut iter = uri_parts_from_req.href().split('?');
     let before_question = iter.next()?;
     let after_question = iter.next().unwrap_or("");
     Some((before_question, after_question))
@@ -65,6 +64,7 @@ fn manage_accept(
       if key_cb(key_from_req) {
         has_key = true;
       }
+    } else {
     }
   }
 
@@ -78,7 +78,7 @@ async fn serve(
   mut key_cb: impl Copy + FnMut(&str) -> bool + Send + 'static,
 ) -> irec::Result<()> {
   let listener = TcpListener::bind(addr).await?;
-  let tls_acceptor = tls_acceptor(cert, key)?;
+  let tls_acceptor = TokioRustlsAcceptor::default().with_cert_chain_and_priv_key(cert, key)?;
   loop {
     let (stream, _) = listener.accept().await?;
     let local_tls_acceptor = tls_acceptor.clone();
@@ -89,10 +89,9 @@ async fn serve(
         let mut tls_stream = local_tls_acceptor.accept(stream).await?;
         let ws_rslt = WebSocketAcceptRaw {
           compression: (),
-          key_buffer: &mut <_>::default(),
-          pb: PartitionedBuffer::default(),
           rng: StdRng::default(),
           stream: &mut tls_stream,
+          wsb: WebSocketBuffer::default(),
         }
         .accept(|req| manage_accept(&mut endpoint, &mut ft, req, &mut key_cb))
         .await;
@@ -117,20 +116,6 @@ async fn serve(
   }
 }
 
-fn tls_acceptor(mut cert: &[u8], mut key: &[u8]) -> wtx::Result<TlsAcceptor> {
-  let key = pkcs8_private_keys(&mut key)?
-    .into_iter()
-    .map(PrivateKey)
-    .next()
-    .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "No private key"))?;
-  let certs: Vec<_> = certs(&mut cert)?.into_iter().map(Certificate).collect();
-  let config = ServerConfig::builder()
-    .with_safe_defaults()
-    .with_no_client_auth()
-    .with_single_cert(certs, key)
-    .map_err(|err| io::Error::new(io::ErrorKind::InvalidInput, err))?;
-  Ok(TlsAcceptor::from(Arc::new(config)))
-}
 enum Endpoint {
   Store,
 }
@@ -139,24 +124,18 @@ enum Endpoint {
 mod tests {
   use crate::serve;
   use irec::{irec_dir, FileTy};
-  use std::{io::Cursor, sync::Arc, time::Duration};
+  use std::{net::ToSocketAddrs, time::Duration};
   use tokio::{
     fs::{read_dir, read_to_string, remove_dir_all},
-    net::TcpStream,
     time::sleep,
   };
-  use tokio_rustls::{
-    rustls::{ClientConfig, OwnedTrustAnchor, RootCertStore, ServerName},
-    TlsConnector,
-  };
-  use webpki_roots::TLS_SERVER_ROOTS;
   use wtx::{
+    misc::{TokioRustlsConnector, Uri},
     rng::StdRng,
     web_socket::{
       handshake::{WebSocketConnect, WebSocketConnectRaw},
-      FrameBufferVec, FrameMutVec, OpCode,
+      FrameBufferVec, FrameMutVec, OpCode, WebSocketBuffer,
     },
-    PartitionedBuffer,
   };
 
   #[tokio::test]
@@ -181,16 +160,15 @@ mod tests {
       compression: (),
       fb: &mut fb,
       headers_buffer: &mut <_>::default(),
-      pb: PartitionedBuffer::default(),
       rng: StdRng::default(),
-      stream: tls_connector()
-        .connect(
-          ServerName::try_from("localhost").map_err(|_err| wtx::Error::MissingHost).unwrap(),
-          TcpStream::connect("localhost:3000").await.unwrap(),
-        )
+      stream: TokioRustlsConnector::from_webpki_roots()
+        .push_certs(include_bytes!("../../../.certs/root-ca.crt"))
+        .unwrap()
+        .with_tcp_stream("localhost:3000".to_socket_addrs().unwrap().next().unwrap(), "localhost")
         .await
         .unwrap(),
-      uri: &format!("ws://localhost:3000/store?ft=audio,key={key}"),
+      uri: &Uri::new(&format!("ws://localhost:3000/store?ft=audio,key={key}")),
+      wsb: WebSocketBuffer::default(),
     }
     .connect()
     .await
@@ -205,21 +183,5 @@ mod tests {
     let dir_entry = read_dir.next_entry().await.unwrap().unwrap();
     assert!(read_dir.next_entry().await.unwrap().is_none());
     assert_eq!(read_to_string(dir_entry.path()).await.unwrap(), content)
-  }
-
-  fn tls_connector() -> TlsConnector {
-    let mut root_store = RootCertStore::empty();
-    root_store.add_trust_anchors(TLS_SERVER_ROOTS.iter().map(|ta| {
-      OwnedTrustAnchor::from_subject_spki_name_constraints(ta.subject, ta.spki, ta.name_constraints)
-    }));
-    let _ = root_store.add_parsable_certificates(
-      &rustls_pemfile::certs(&mut Cursor::new(include_bytes!("../../../.certs/root-ca.crt")))
-        .unwrap(),
-    );
-    let config = ClientConfig::builder()
-      .with_safe_defaults()
-      .with_root_certificates(root_store)
-      .with_no_client_auth();
-    TlsConnector::from(Arc::new(config))
   }
 }

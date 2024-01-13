@@ -1,19 +1,16 @@
 [[bin]]
 name = "server"
-required-features = ["rustls-pemfile", "tokio/macros", "tokio/rt-multi-thread"]
+required-features = ["tokio/macros", "tokio/rt-multi-thread"]
 
 [dependencies]
 home = { default-features = false, version = "0.5" }
-rustls-pemfile = { default-features = false, optional = true, version = "1.0" }
-tokio = { default-features = false, features = ["fs", "net", "time", "macros", "rt-multi-thread"], version = "1.35" }
-tokio-rustls = { default-features = false, features = ["tls12"], version = "0.24" }
-wtx = { default-features = false, features = ["tokio-rustls", "web-socket-handshake"], version = "0.11" }
-
-[dev-dependencies]
-webpki-roots = { default-features = false, version = "0.25" }
+tokio = { default-features = false, features = ["fs", "net", "time", "macros", "rt-multi-thread"], version = "1.0" }
+tokio-rustls = { default-features = false, features = ["tls12"], version = "0.25" }
+wtx = { default-features = false, features = ["rustls-pemfile", "tokio-rustls", "web-socket-handshake", "webpki-roots"], version = "0.13" }
 
 [package]
 edition = "2021"
+license = "Apache-2.0"
 name = "irec"
 publish = false
 version = "0.1.0"
