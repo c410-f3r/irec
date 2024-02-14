@@ -6,7 +6,7 @@ required-features = ["tokio/macros", "tokio/rt-multi-thread"]
 home = { default-features = false, version = "0.5" }
 tokio = { default-features = false, features = ["fs", "net", "time", "macros", "rt-multi-thread"], version = "1.36" }
 tokio-rustls = { default-features = false, features = ["tls12"], version = "0.25" }
-wtx = { default-features = false, features = ["rustls-pemfile", "tokio-rustls", "web-socket-handshake", "webpki-roots"], version = "0.13" }
+wtx = { default-features = false, features = ["rustls-pemfile", "tokio-rustls", "web-socket-handshake", "webpki-roots"], version = "0.14" }
 
 [package]
 edition = "2021"
